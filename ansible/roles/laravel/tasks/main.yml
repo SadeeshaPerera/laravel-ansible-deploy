@@ -13,22 +13,34 @@
     recursive: yes
 
 - name: Install Composer dependencies
+  become: yes
+  become_user: "{{ ansible_user }}"
   composer:
     command: install
     working_dir: "{{ app_root }}"
-    no_dev: no
+    no_dev: "{{ app_env == 'production' }}"
 
-- name: Set proper permissions
+- name: Set initial directory ownership
+  file:
+    path: "{{ app_root }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    recurse: yes
+  
+- name: Set proper permissions for web server
   file:
     path: "{{ app_root }}"
     owner: www-data
     group: www-data
+    mode: '0755'
     recurse: yes
 
 - name: Set storage and bootstrap cache permissions
   file:
     path: "{{ item }}"
-    mode: '0777'
+    owner: www-data
+    group: www-data
+    mode: '0775'
     recurse: yes
   with_items:
     - "{{ app_root }}/storage"
@@ -50,3 +62,19 @@
   command: php artisan migrate --force
   args:
     chdir: "{{ app_root }}"
+
+- name: Optimize Laravel application
+  when: app_env == "production"
+  command: "{{ item }}"
+  args:
+    chdir: "{{ app_root }}"
+  with_items:
+    - php artisan config:cache
+    - php artisan route:cache
+    - php artisan view:cache
+
+- name: Restart PHP-FPM
+  when: app_env == "production"
+  service:
+    name: "php{{ php_version }}-fpm"
+    state: restarted
