@@ -1,0 +1,23 @@
+---
+# Application settings
+app_name: laravel-app
+app_root: /var/www/{{ app_name }}
+app_env: local
+app_debug: true
+
+# PHP settings
+php_version: "8.2"
+php_packages:
+  - "php{{ php_version }}"
+  - "php{{ php_version }}-cli"
+  - "php{{ php_version }}-common"
+  - "php{{ php_version }}-curl"
+  - "php{{ php_version }}-mbstring"
+  - "php{{ php_version }}-xml"
+  - "php{{ php_version }}-zip"
+  - "php{{ php_version }}-sqlite3"
+  - "php{{ php_version }}-fpm"
+
+# Nginx settings
+nginx_server_name: localhost
+nginx_root: "{{ app_root }}/public"

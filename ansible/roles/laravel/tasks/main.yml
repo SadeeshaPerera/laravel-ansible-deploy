@@ -1,0 +1,80 @@
+---
+- name: Ensure application directory exists
+  file:
+    path: "{{ app_root }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy Laravel application files
+  synchronize:
+    src: "{{ playbook_dir }}/../laravel-app/"
+    dest: "{{ app_root }}"
+    delete: yes
+    recursive: yes
+
+- name: Install Composer dependencies
+  become: yes
+  become_user: "{{ ansible_user }}"
+  composer:
+    command: install
+    working_dir: "{{ app_root }}"
+    no_dev: "{{ app_env == 'production' }}"
+
+- name: Set initial directory ownership
+  file:
+    path: "{{ app_root }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    recurse: yes
+  
+- name: Set proper permissions for web server
+  file:
+    path: "{{ app_root }}"
+    owner: www-data
+    group: www-data
+    mode: '0755'
+    recurse: yes
+
+- name: Set storage and bootstrap cache permissions
+  file:
+    path: "{{ item }}"
+    owner: www-data
+    group: www-data
+    mode: '0775'
+    recurse: yes
+  with_items:
+    - "{{ app_root }}/storage"
+    - "{{ app_root }}/bootstrap/cache"
+
+- name: Copy .env file
+  template:
+    src: env.j2
+    dest: "{{ app_root }}/.env"
+
+- name: Generate application key
+  command: php artisan key:generate
+  args:
+    chdir: "{{ app_root }}"
+  register: key_generate
+  changed_when: key_generate.rc == 0
+
+- name: Run database migrations
+  command: php artisan migrate --force
+  args:
+    chdir: "{{ app_root }}"
+
+- name: Optimize Laravel application
+  when: app_env == "production"
+  command: "{{ item }}"
+  args:
+    chdir: "{{ app_root }}"
+  with_items:
+    - php artisan config:cache
+    - php artisan route:cache
+    - php artisan view:cache
+
+- name: Restart PHP-FPM
+  when: app_env == "production"
+  service:
+    name: "php{{ php_version }}-fpm"
+    state: restarted

@@ -1,0 +1,19 @@
+---
+- name: Add PHP repository
+  apt_repository:
+    repo: ppa:ondrej/php
+    state: present
+
+- name: Install PHP and required extensions
+  apt:
+    name: "{{ php_packages }}"
+    state: present
+    update_cache: yes
+
+- name: Install Composer
+  shell: |
+    curl -sS https://getcomposer.org/installer | php
+    mv composer.phar /usr/local/bin/composer
+    chmod +x /usr/local/bin/composer
+  args:
+    creates: /usr/local/bin/composer
